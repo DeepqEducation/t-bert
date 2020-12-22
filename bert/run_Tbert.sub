@@ -1,0 +1,57 @@
+#!/bin/bash
+
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --overcommit
+
+#SBATCH -J Training
+#SBATCH -o %j_Tbert_base_log
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-gpu=4
+#SBATCH --account=GOV109042
+#SBATCH --partition=gp4d
+#SBATCH --gres=gpu:8
+
+module purge
+module load compiler/gnu/7.3.0 openmpi3 singularity
+
+set -eux
+
+# The following variables variables need to be set
+# the checkpoint folder will be stored in WORKSPACE folder
+WORKSPACE=~/t-bert
+
+# Path to the singularity image
+# Default setting is in WORKSPACE folder
+SINGULARITY_PATH=${WORKSPACE}/pytorch_19.12-py3.sif
+
+# the name of folder which contains checkpoints
+output_dir="Tbert_base"
+
+# Location of dataset
+readonly datadir="/workspace/bert/data/hdf5_lower_case_0_seq_len_512_max_pred_80_masked_lm_prob_0.15_random_seed_12345_dupe_factor_5/wikicorpus_zh"
+
+# make checkpoint folder
+srun -N1 --ntasks=1 --ntasks-per-node=1 mkdir -p ${WORKSPACE}/${output_dir}
+
+BERT_CMD="\
+    python -u /workspace/bert/run_pretraining.py \
+    --seed=42 \
+    --train_batch_size=${BATCHSIZE:-256} \
+    --learning_rate=${LR:-4e-3} \
+    --warmup_proportion=${WARMUP_UPDATES:-0.2843} \
+    --input_dir=${datadir} \
+    --max_seq_length=512 \
+    --max_predictions_per_seq=80 \
+    --max_steps=10000 \
+    --num_steps_per_checkpoint=1000 \
+    --do_train \
+    --config_file=/workspace/bert/Tbert_base_config.json \
+    --output_dir=/workspace/${output_dir} \
+    --fp16 \
+    --allreduce_post_accumulation --allreduce_post_accumulation_fp16 \
+    --gradient_accumulation_steps=${GRADIENT_STEPS:-2} \
+    --log_freq=1 \
+    --local_rank=\${SLURM_LOCALID}"
+
+srun singularity exec --nv -B ${WORKSPACE}:/workspace ${SINGULARITY_PATH} sh -c "${BERT_CMD}"

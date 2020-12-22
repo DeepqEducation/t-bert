@@ -1,0 +1,5 @@
+16 nodes for bert large:
+BATCHSIZE=256 LR=4e-3 GRADIENT_STEPS=32 sbatch -N16 --ntasks-per-node=8 bert/run_Tbert.sub
+
+8 nodes for bert base:
+BATCHSIZE=512 LR=4e-3 GRADIENT_STEPS=32 sbatch -N8 --ntasks-per-node=8 bert/run_Tbert.sub

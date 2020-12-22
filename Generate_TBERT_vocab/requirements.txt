@@ -1,0 +1,4 @@
+nltk
+numpy
+six
+tensorflow==1.15
